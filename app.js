@@ -30,10 +30,12 @@ const weatherCodeMap = {
 };
 
 let currentWeatherData = null;
+let debounceTimer;
 
 const DOM = {
     input: document.getElementById('searchInput'),
     searchBtn: document.getElementById('searchBtn'),
+    validMsg: document.getElementById('validationMsg'),
     errorBanner: document.getElementById('errorBanner'),
     errMsg: document.getElementById('errorMessage'),
     retryBtn: document.getElementById('retryBtn'),
@@ -49,6 +51,8 @@ const DOM = {
 function init() {
     initForecastSkeletons();
     
+    DOM.input.addEventListener('input', handleDebounceSearch);
+    
     DOM.searchBtn.addEventListener('click', () => {
         const city = DOM.input.value.trim();
         if (city) triggerSearch(city);
@@ -60,16 +64,40 @@ function init() {
     });
 }
 
+function handleDebounceSearch(e) {
+    clearTimeout(debounceTimer);
+    const query = e.target.value.trim();
+    
+    if (query.length > 0 && query.length < 2) {
+        DOM.validMsg.classList.remove('hidden');
+        return;
+    }
+    
+    DOM.validMsg.classList.add('hidden');
+
+    debounceTimer = setTimeout(() => {
+        if (query.length >= 2) triggerSearch(query);
+    }, 500);
+}
+
 function triggerSearch(city) {
+    if (!city || city.length < 2) return;
     hideError();
     setSkeletons(true);
     fetchWeatherData(city);
 }
 
 async function fetchWeatherData(city) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
     try {
         const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}`;
-        const geoRes = await fetch(geoUrl);
+
+        const geoRes = await fetch(geoUrl, { signal: controller.signal });
+        
+        if (!geoRes.ok) throw new Error(`Geocoding HTTP Error: ${geoRes.status}`);
+        
         const geoData = await geoRes.json();
 
         if (!geoData.results || geoData.results.length === 0) {
@@ -81,18 +109,27 @@ async function fetchWeatherData(city) {
         const { latitude, longitude, name, timezone } = geoData.results[0];
 
         const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&hourly=temperature_2m,relativehumidity_2m,windspeed_10m&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`;
-        const weatherRes = await fetch(weatherUrl);
+
+        const weatherRes = await fetch(weatherUrl, { signal: controller.signal });
+        
+        if (!weatherRes.ok) throw new Error(`Weather HTTP Error: ${weatherRes.status}`);
+        
         const weatherData = await weatherRes.json();
 
         currentWeatherData = { name, weatherData, timezone };
         
         renderUI();
-        
         fetchLocalTime(timezone);
 
     } catch (err) {
-        showError("Network error: " + err.message); 
+        if (err.name === 'AbortError') {
+            showError("Request timed out after 10 seconds.");
+        } else {
+            showError("Network error: " + err.message); 
+        }
         setSkeletons(false, true);
+    } finally {
+        clearTimeout(timeoutId);
     }
 }
 
@@ -115,7 +152,7 @@ function fetchLocalTime(timezone) {
         })
         .always(function() {
             DOM.time.classList.remove('skeleton');
-            console.log(`Time request completed at: ${new Date().toISOString()}`);
+            console.log(`Time request completed at: ${new Date().toLocaleTimeString()}`);
         });
 }
 
