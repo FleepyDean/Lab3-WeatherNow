@@ -87,11 +87,36 @@ async function fetchWeatherData(city) {
         currentWeatherData = { name, weatherData, timezone };
         
         renderUI();
+        
+        fetchLocalTime(timezone);
 
     } catch (err) {
         showError("Network error: " + err.message); 
         setSkeletons(false, true);
     }
+}
+
+function fetchLocalTime(timezone) {
+    if (!timezone) {
+        DOM.time.textContent = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) + " (Local)";
+        DOM.time.classList.remove('skeleton');
+        return;
+    }
+
+    const timeApiUrl = `https://timeapi.io/api/Time/current/zone?timeZone=${timezone}`;
+    
+    $.getJSON(timeApiUrl)
+        .done(function(data) {
+            const date = new Date(data.dateTime); 
+            DOM.time.textContent = date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        })
+        .fail(function() {
+            DOM.time.textContent = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) + " (Local)";
+        })
+        .always(function() {
+            DOM.time.classList.remove('skeleton');
+            console.log(`Time request completed at: ${new Date().toISOString()}`);
+        });
 }
 
 function renderUI() {
@@ -124,9 +149,10 @@ function renderUI() {
         `;
     }
     
-    DOM.time.textContent = "Loading time..."; 
-    
     setSkeletons(false);
+    
+    DOM.time.textContent = ''; 
+    DOM.time.classList.add('skeleton');
 }
 
 function setSkeletons(isActive, clearData = false) {
