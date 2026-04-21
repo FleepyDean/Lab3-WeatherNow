@@ -31,6 +31,7 @@ const weatherCodeMap = {
 
 let currentWeatherData = null;
 let debounceTimer;
+let currentUnit = 'C';
 
 const DOM = {
     input: document.getElementById('searchInput'),
@@ -45,11 +46,14 @@ const DOM = {
     humidity: document.getElementById('humidity'),
     wind: document.getElementById('windSpeed'),
     time: document.getElementById('localTime'),
-    grid: document.getElementById('forecastGrid')
+    grid: document.getElementById('forecastGrid'),
+    unitToggle: document.getElementById('unitToggle'),
+    recentSearches: document.getElementById('recentSearches')
 };
 
 function init() {
     initForecastSkeletons();
+    loadRecentSearches();
     
     DOM.input.addEventListener('input', handleDebounceSearch);
     
@@ -62,6 +66,8 @@ function init() {
         const city = DOM.input.value.trim();
         if (city) triggerSearch(city);
     });
+
+    DOM.unitToggle.addEventListener('click', toggleUnits);
 }
 
 function handleDebounceSearch(e) {
@@ -84,6 +90,7 @@ function triggerSearch(city) {
     if (!city || city.length < 2) return;
     hideError();
     setSkeletons(true);
+    saveRecentSearch(city);
     fetchWeatherData(city);
 }
 
@@ -119,6 +126,8 @@ async function fetchWeatherData(city) {
         currentWeatherData = { name, weatherData, timezone };
         
         renderUI();
+        DOM.time.textContent = ''; 
+        DOM.time.classList.add('skeleton');
         fetchLocalTime(timezone);
 
     } catch (err) {
@@ -163,9 +172,12 @@ function renderUI() {
     const daily = weatherData.daily;
     
     const codeInfo = weatherCodeMap[current.weathercode] || { desc: 'Unknown', icon: '❓' };
+
+    let tempC = current.temperature;
+    let tempDisplay = currentUnit === 'C' ? tempC : (tempC * 9/5) + 32;
     
     DOM.city.textContent = name;
-    DOM.temp.textContent = `${current.temperature.toFixed(1)}°C`;
+    DOM.temp.textContent = `${tempDisplay.toFixed(1)}°${currentUnit}`;
     DOM.desc.textContent = `${codeInfo.icon} ${codeInfo.desc}`;
     DOM.humidity.textContent = `${hourly.relativehumidity_2m[0]}%`;
     DOM.wind.textContent = `${current.windspeed} km/h`;
@@ -176,20 +188,59 @@ function renderUI() {
         const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
         const dCode = weatherCodeMap[daily.weathercode[i]] || { icon: '❓' };
         
+        let maxT = daily.temperature_2m_max[i];
+        let minT = daily.temperature_2m_min[i];
+        
+        if (currentUnit === 'F') { 
+            maxT = (maxT * 9/5) + 32; 
+            minT = (minT * 9/5) + 32; 
+        }
+        
         DOM.grid.innerHTML += `
             <div class="forecast-card">
                 <h4>${dayName}</h4>
                 <div class="forecast-icon">${dCode.icon}</div>
-                <p>H: ${daily.temperature_2m_max[i].toFixed(0)}°C</p>
-                <p>L: ${daily.temperature_2m_min[i].toFixed(0)}°C</p>
+                <p>H: ${maxT.toFixed(0)}°${currentUnit}</p>
+                <p>L: ${minT.toFixed(0)}°${currentUnit}</p>
             </div>
         `;
     }
     
     setSkeletons(false);
+}
+
+function toggleUnits() {
+    currentUnit = currentUnit === 'C' ? 'F' : 'C';
+    if (currentWeatherData) renderUI();
+}
+
+function saveRecentSearch(city) {
+    let searches = JSON.parse(localStorage.getItem('recentSearches')) || [];
     
-    DOM.time.textContent = ''; 
-    DOM.time.classList.add('skeleton');
+    searches = searches.filter(s => s.toLowerCase() !== city.toLowerCase());
+    
+    searches.unshift(city);
+    
+    if (searches.length > 5) searches.pop();
+    
+    localStorage.setItem('recentSearches', JSON.stringify(searches));
+    loadRecentSearches();
+}
+
+function loadRecentSearches() {
+    let searches = JSON.parse(localStorage.getItem('recentSearches')) || [];
+    DOM.recentSearches.innerHTML = '';
+    
+    searches.forEach(city => {
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        chip.textContent = city;
+        chip.addEventListener('click', () => { 
+            DOM.input.value = city; 
+            triggerSearch(city); 
+        });
+        DOM.recentSearches.appendChild(chip);
+    });
 }
 
 function setSkeletons(isActive, clearData = false) {
