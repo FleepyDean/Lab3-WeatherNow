@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WeatherNow</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>WeatherNow</h1>
+            <div class="controls">
+                <input type="text" id="searchInput" placeholder="Search city..." autocomplete="off">
+                <button id="searchBtn">Search</button>
+                <button id="unitToggle">°C / °F</button>
+            </div>
+            <div id="validationMsg" class="error-text hidden">Please enter at least 2 characters.</div>
+            <div class="recent-searches" id="recentSearches"></div>
+        </header>
+
+        <div id="errorBanner" class="error-banner hidden">
+            <span id="errorMessage"></span>
+            <button id="retryBtn">Retry</button>
+        </div>
+
+        <main>
+            <section class="current-weather card">
+                <h2 id="cityName" class="skeleton skeleton-text"></h2>
+                <div class="current-details">
+                    <div class="temp-block">
+                        <span id="currentTemp" class="skeleton skeleton-text large"></span>
+                        <span id="weatherDesc" class="skeleton skeleton-text"></span>
+                    </div>
+                    <div class="extra-details">
+                        <p>Humidity: <span id="humidity" class="skeleton skeleton-text short"></span></p>
+                        <p>Wind: <span id="windSpeed" class="skeleton skeleton-text short"></span></p>
+                        <p>Time: <span id="localTime" class="skeleton skeleton-text short"></span></p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="forecast">
+                <h3>7-Day Forecast</h3>
+                <div class="forecast-grid" id="forecastGrid">
+                    </div>
+            </section>
+        </main>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
